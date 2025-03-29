@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "123032806701",
+    "project_id": "sdp-project-939bd",
+    "storage_bucket": "sdp-project-939bd.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:123032806701:android:d7af6c54dd50afdc621fa4",
+        "android_client_info": {
+          "package_name": "com.example.sdp_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAl8aLpMf3yDnIVaS4_6cH2QjKf7x2W6SU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

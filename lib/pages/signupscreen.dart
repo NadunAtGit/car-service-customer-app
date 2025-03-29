@@ -2,10 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
-import 'package:sdp_app/pages/homescreen.dart';
+import 'package:sdp_app/pages/loginscreen.dart';
 import 'package:sdp_app/utils/DioInstance.dart';
 import 'package:sdp_app/utils/validations.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class Signupscreen extends StatefulWidget {
   const Signupscreen({super.key});
@@ -60,6 +61,12 @@ class _SignupscreenState extends State<Signupscreen> {
     }
   }
 
+  Future<String> getFirebaseToken() async {
+    FirebaseMessaging messaging = FirebaseMessaging.instance;
+    String? token = await messaging.getToken();
+    return token ?? "";
+  }
+
   Future<void> _signup() async {
     if (_validateInputs() == false) return;
 
@@ -72,6 +79,9 @@ class _SignupscreenState extends State<Signupscreen> {
         return;
       }
 
+      // Get Firebase token
+      String firebaseToken = await getFirebaseToken();
+
       Response response = await DioInstance.dio.post(
         "/api/customers/customer-signup",
         data: {
@@ -82,10 +92,11 @@ class _SignupscreenState extends State<Signupscreen> {
           "Password": _passwordController.text.trim(),
           "Username": _usernameController.text.trim(),
           "profilePicUrl": imageUrl,
+          "FirebaseToken": firebaseToken, // Add Firebase token here
         },
       );
 
-      print("Signup Response: \${response.data}");
+      print("Signup Response: ${response.data}");
 
       if (response.statusCode == 200 && response.data['success']) {
         String token = response.data['accessToken'];
@@ -93,7 +104,7 @@ class _SignupscreenState extends State<Signupscreen> {
         await prefs.setString("token", token);
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => Homescreen()),
+          MaterialPageRoute(builder: (context) => Loginscreen()),
         );
       } else {
         _showError(response.data['message']);
@@ -105,6 +116,7 @@ class _SignupscreenState extends State<Signupscreen> {
       setState(() => _isLoading = false);
     }
   }
+
 
   bool _validateInputs() {
     if (_firstnameController.text.trim().isEmpty ||

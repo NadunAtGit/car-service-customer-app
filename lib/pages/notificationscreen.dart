@@ -22,10 +22,16 @@ class _NotificationscreenState extends State<Notificationscreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(width: 10), // Space between profile pic and text
-                  const Text(
-                    "Notifications",
-                    style: TextStyle(fontSize: 38, fontWeight: FontWeight.bold),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                    },
+                    child: const Text(
+                      "Notifications",
+                      style: TextStyle(fontSize: 38, fontWeight: FontWeight.bold),
+                    ),
                   ),
+
                   Divider(
                     thickness: 1.5,  // Adjust thickness for better visibility
                     color: Colors.grey[300],  // Light grey color
@@ -43,7 +49,7 @@ class _NotificationscreenState extends State<Notificationscreen> {
 
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(20.0),
-                          color: Colors.red,
+                          color: Color(0xFFd9baf4),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,

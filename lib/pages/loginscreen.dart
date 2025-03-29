@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:sdp_app/utils/DioInstance.dart';
 import 'homescreen.dart';
 import 'package:sdp_app/pages/signupscreen.dart';
+import 'package:sdp_app/pages/AddVehicle.dart';
+import 'package:sdp_app/pages/Mainpage.dart';
 
 class Loginscreen extends StatefulWidget {
   const Loginscreen({super.key});
@@ -40,10 +42,12 @@ class _LoginscreenState extends State<Loginscreen> {
         SharedPreferences prefs = await SharedPreferences.getInstance();
         await prefs.setString("token", token);
 
+
+
         // Navigate to HomeScreen
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => Homescreen()),
+          MaterialPageRoute(builder: (context) => Mainpage()),
         );
       } else {
         _showError(response.data['message']);
