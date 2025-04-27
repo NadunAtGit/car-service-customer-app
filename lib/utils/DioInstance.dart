@@ -11,9 +11,10 @@ class DioInstance {
   ));
 
   // POST request
-  static Future<Response?> postRequest(String path, Map<String, dynamic> data) async {
+  static Future<Response?> postRequest(String path,
+      Map<String, dynamic> data, {Options? options}) async {
     try {
-      Response response = await dio.post(path, data: data);
+      Response response = await dio.post(path, data: data, options: options);
       return response;
     } catch (e) {
       print("Dio Error: $e");
@@ -24,7 +25,8 @@ class DioInstance {
   // GET request (modified to accept options)
   static Future<Response?> getRequest(String path, {Options? options}) async {
     try {
-      Response response = await dio.get(path, options: options); // Pass the options
+      Response response = await dio.get(
+          path, options: options); // Pass the options
       return response;
     } catch (e) {
       print("Dio Error: $e");
@@ -33,9 +35,11 @@ class DioInstance {
   }
 
   // PUT request
-  static Future<Response?> putRequest(String path, Map<String, dynamic> data) async {
+// Add 'options' parameter to putRequest method
+  static Future<Response?> putRequest(String path, Map<String, dynamic> data,
+      {Options? options}) async {
     try {
-      Response response = await dio.put(path, data: data);
+      Response response = await dio.put(path, data: data, options: options);
       return response;
     } catch (e) {
       print("Dio Error: $e");
@@ -44,13 +48,20 @@ class DioInstance {
   }
 
   // DELETE request
-  static Future<Response?> deleteRequest(String path) async {
+  static Future<Response?> deleteRequest(String path,
+      {Options? options}) async {
     try {
-      Response response = await dio.delete(path);
+      Response response = await dio.delete(
+          path,
+          options: options
+      );
       return response;
     } catch (e) {
       print("Dio Error: $e");
       return null;
     }
   }
+
 }
+
+

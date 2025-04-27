@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
-import 'dart:ui';
 import 'package:image_picker/image_picker.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sdp_app/components/VehicleTypeDropdown.dart';
@@ -22,11 +22,18 @@ class _AddvehicleState extends State<Addvehicle> {
   File? _imageFile;
   bool _isLoading = false;
   String? _selectedVehicleType;
-  final Color primaryColor = Color(0xFF944EF8);
-  final Color backgroundColor = Color(0xFFEAEAEA);
+
+  // Modern color scheme
+  final Color primaryColor = Color(0xFF3D5AF1);
+  final Color accentColor = Color(0xFF22B07D);
+  final Color backgroundColor = Color(0xFFF8F9FD);
+  final Color textDarkColor = Color(0xFF1A2151);
+  final Color textLightColor = Color(0xFF8B92A8);
+  final Color surfaceColor = Colors.white;
 
   final TextEditingController _regNumController = TextEditingController();
   final TextEditingController _makeController = TextEditingController();
+  final TextEditingController _mileageController = TextEditingController();
 
   Future<void> _pickImage() async {
     try {
@@ -36,56 +43,59 @@ class _AddvehicleState extends State<Addvehicle> {
         builder: (BuildContext context) {
           return Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+              color: surfaceColor,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  spreadRadius: 0,
+                  offset: Offset(0, -2),
+                ),
+              ],
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  SizedBox(height: 24),
+                  Text(
+                    'Choose Image Source',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: textDarkColor,
+                    ),
+                  ),
+                  SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      Container(
-                        width: 50,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.withOpacity(0.5),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                      _imageSourceOption(
+                        context,
+                        Icons.camera_alt_rounded,
+                        'Camera',
+                        ImageSource.camera,
                       ),
-                      SizedBox(height: 20),
-                      Text(
-                        'Choose Image Source',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      _imageSourceOption(
+                        context,
+                        Icons.photo_library_rounded,
+                        'Gallery',
+                        ImageSource.gallery,
                       ),
-                      SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          _imageSourceOption(
-                            context,
-                            Icons.camera_alt,
-                            'Camera',
-                            ImageSource.camera,
-                          ),
-                          _imageSourceOption(
-                            context,
-                            Icons.photo_library,
-                            'Gallery',
-                            ImageSource.gallery,
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: 20),
                     ],
                   ),
-                ),
+                  SizedBox(height: 24),
+                ],
               ),
             ),
           );
@@ -115,23 +125,24 @@ class _AddvehicleState extends State<Addvehicle> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            padding: EdgeInsets.all(15),
+            padding: EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: primaryColor.withOpacity(0.1),
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               icon,
-              size: 30,
+              size: 28,
               color: primaryColor,
             ),
           ),
-          SizedBox(height: 10),
+          SizedBox(height: 12),
           Text(
             label,
             style: GoogleFonts.poppins(
               fontSize: 14,
               fontWeight: FontWeight.w500,
+              color: textDarkColor,
             ),
           ),
         ],
@@ -152,7 +163,6 @@ class _AddvehicleState extends State<Addvehicle> {
         options: Options(headers: {"Content-Type": "multipart/form-data"}),
       );
 
-      print("Image Upload Response: ${response.data.toString()}");
       return response.statusCode == 201 ? response.data["imageUrl"] : null;
     } catch (e) {
       _showError("Image upload error: $e");
@@ -182,6 +192,26 @@ class _AddvehicleState extends State<Addvehicle> {
       return;
     }
 
+    // Validate mileage input
+    final mileageText = _mileageController.text.trim();
+    if (mileageText.isEmpty) {
+      _showError("Please enter current mileage");
+      return;
+    }
+
+    // Parse mileage to ensure it's a valid number
+    int? mileage;
+    try {
+      mileage = int.parse(mileageText);
+      if (mileage < 0) {
+        _showError("Mileage cannot be negative");
+        return;
+      }
+    } catch (e) {
+      _showError("Please enter a valid mileage number");
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     try {
@@ -205,7 +235,8 @@ class _AddvehicleState extends State<Addvehicle> {
           "VehicleNo": _regNumController.text.trim(),
           "Model": _makeController.text.trim(),
           "Type": _selectedVehicleType,
-          "VehiclePicUrl": imageUrl
+          "VehiclePicUrl": imageUrl,
+          "CurrentMilleage": int.parse(_mileageController.text.trim())
         },
         options: Options(
           headers: {
@@ -215,17 +246,14 @@ class _AddvehicleState extends State<Addvehicle> {
         ),
       );
 
-      print("Add vehicle response: ${response.data}");
-
       if (response.statusCode == 201 && response.data['success']) {
-        // Show success message before navigating
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               'Vehicle added successfully!',
               style: GoogleFonts.poppins(),
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: accentColor,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -233,7 +261,6 @@ class _AddvehicleState extends State<Addvehicle> {
           ),
         );
 
-        // Delay navigation to show snackbar
         Future.delayed(Duration(seconds: 1), () {
           Navigator.pushReplacement(
             context,
@@ -244,7 +271,6 @@ class _AddvehicleState extends State<Addvehicle> {
         _showError(response.data['message']);
       }
     } on DioException catch (e) {
-      print("Error: ${e.response?.data.toString() ?? e.message}");
       _showError(e.response?.data['message'] ?? "Request failed. Please try again.");
     } finally {
       setState(() => _isLoading = false);
@@ -258,7 +284,7 @@ class _AddvehicleState extends State<Addvehicle> {
           message,
           style: GoogleFonts.poppins(),
         ),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.red.shade600,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10),
@@ -271,419 +297,351 @@ class _AddvehicleState extends State<Addvehicle> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: backgroundColor,
-      body: Stack(
-        children: [
-          // Background image or pattern
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  primaryColor.withOpacity(0.3),
-                  backgroundColor,
-                ],
-              ),
-            ),
+      appBar: AppBar(
+        elevation: 0,
+        backgroundColor: backgroundColor,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios_new, color: textDarkColor, size: 20),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Add Vehicle',
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: textDarkColor,
           ),
-
-          // Abstract circle decoration
-          Positioned(
-            top: -100,
-            right: -100,
-            child: Container(
-              height: 250,
-              width: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: primaryColor.withOpacity(0.2),
-              ),
-            ),
-          ),
-
-          Positioned(
-            top: 50,
-            left: -50,
-            child: Container(
-              height: 150,
-              width: 150,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: primaryColor.withOpacity(0.1),
-              ),
-            ),
-          ),
-
-          // Main content
-          SafeArea(
+        ),
+        centerTitle: true,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          physics: BouncingScrollPhysics(),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // App bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.arrow_back_ios, color: primaryColor),
-                        onPressed: () => Navigator.pop(context),
+                // Modern section headings with icons
+                SizedBox(height: 20),
+                Row(
+                  children: [
+                    Icon(Icons.photo_camera_outlined, color: primaryColor),
+                    SizedBox(width: 8),
+                    Text(
+                      'Vehicle Image',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: textDarkColor,
                       ),
-                      Text(
-                        'Add Vehicle',
-                        style: GoogleFonts.poppins(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black87,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-
-                // Content
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: BouncingScrollPhysics(),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      child: Column(
-                        children: [
-                          // Image picker
-                          SizedBox(height: 20),
-                          Text(
-                            'Upload Vehicle Image',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black54,
-                            ),
+                SizedBox(height: 16),
+                // Modern image picker
+                Center(
+                  child: GestureDetector(
+                    onTap: _pickImage,
+                    child: Container(
+                      height: 180,
+                      width: 180,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: surfaceColor,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.06),
+                            blurRadius: 8,
+                            spreadRadius: 0,
+                            offset: Offset(0, 2),
                           ),
-                          SizedBox(height: 20),
-                          GestureDetector(
-                            onTap: _pickImage,
-                            child: Container(
-                              height: 200,
-                              width: 200, // Make width equal to height for a perfect circle
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: _imageFile != null
+                            ? Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.file(
+                              _imageFile!,
+                              fit: BoxFit.cover,
+                            ),
+                            Container(
                               decoration: BoxDecoration(
-                                shape: BoxShape.circle, // Change from borderRadius to shape: BoxShape.circle
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.1),
-                                    blurRadius: 10,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.black.withOpacity(0),
+                                    Colors.black.withOpacity(0.4),
+                                  ],
+                                ),
                               ),
-                              child: ClipOval( // Replace ClipRRect with ClipOval
-                                child: _imageFile != null
-                                    ? Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    Image.file(
-                                      _imageFile!,
-                                      fit: BoxFit.cover,
+                            ),
+                            Positioned(
+                              right: 12,
+                              bottom: 12,
+                              child: Container(
+                                padding: EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 4,
+                                      spreadRadius: 0,
                                     ),
-                                    Positioned(
-                                      right: 10,
-                                      top: 10,
-                                      child: Container(
-                                        padding: EdgeInsets.all(8),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.8),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(
-                                          Icons.edit,
-                                          color: primaryColor,
-                                          size: 20,
-                                        ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.edit_rounded,
+                                  color: primaryColor,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                            : Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            CircleAvatar(
+                              radius: 90,
+                              backgroundColor: Colors.grey.withOpacity(0.1),
+                              child: Icon(
+                                Icons.directions_car_outlined,
+                                size: 60,
+                                color: textLightColor,
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 16,
+                              child: Container(
+                                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: primaryColor,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.add_photo_alternate_rounded,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Add Photo',
+                                      style: GoogleFonts.poppins(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 12,
                                       ),
                                     ),
                                   ],
-                                )
-                                    : Container(
-                                  color: Colors.white,
-                                  child: Stack(
-                                    alignment: Alignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.directions_car,
-                                        size: 70,
-                                        color: Colors.grey.withOpacity(0.3),
-                                      ),
-                                      Positioned(
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        child: Container(
-                                            padding: EdgeInsets.symmetric(vertical: 16),
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                begin: Alignment.bottomCenter,
-                                                end: Alignment.topCenter,
-                                                colors: [
-                                                  primaryColor.withOpacity(0.7),
-                                                  primaryColor.withOpacity(0.0),
-                                                ],
-                                              ),
-                                            ),
-                                            child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
-                                              children: [
-                                                Flexible(
-                                                  child: Icon(
-                                                    Icons.add_photo_alternate,
-                                                    color: Colors.white,
-                                                    size: 18,
-                                                  ),
-                                                ),
-                                                SizedBox(width: 4),
-                                                Flexible(
-                                                  child: Text(
-                                                    'Add Photo',
-                                                    style: GoogleFonts.poppins(
-                                                      color: Colors.white,
-                                                      fontWeight: FontWeight.w500,
-                                                      fontSize: 12,
-                                                    ),
-                                                    overflow: TextOverflow.ellipsis,
-                                                  ),
-                                                ),
-                                              ],
-                                            )
-                                        ),
-                                      ),
-                                    ],
-                                  ),
                                 ),
                               ),
                             ),
-                          ),
-
-                          SizedBox(height: 30),
-
-                          // Form fields
-                          Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(20),
-                              color: Colors.white.withOpacity(0.8),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.05),
-                                  blurRadius: 10,
-                                  spreadRadius: 1,
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(20),
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(20),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Vehicle Details',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.black87,
-                                        ),
-                                      ),
-                                      SizedBox(height: 20),
-
-                                      // Registration Number
-                                      Text(
-                                        'Registration Number',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.black54,
-                                        ),
-                                      ),
-                                      SizedBox(height: 8),
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(12),
-                                          color: Colors.white,
-                                          border: Border.all(
-                                            color: Colors.grey.withOpacity(0.3),
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: TextField(
-                                          controller: _regNumController,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 16,
-                                          ),
-                                          decoration: InputDecoration(
-                                            hintText: "e.g., KA-01-AB-1234",
-                                            hintStyle: GoogleFonts.poppins(
-                                              color: Colors.grey,
-                                              fontSize: 14,
-                                            ),
-                                            prefixIcon: Icon(
-                                              Icons.directions_car,
-                                              color: primaryColor,
-                                            ),
-                                            border: InputBorder.none,
-                                            contentPadding: EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 14,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(height: 20),
-
-                                      // Make & Model
-                                      Text(
-                                        'Make & Model',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.black54,
-                                        ),
-                                      ),
-                                      SizedBox(height: 8),
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(12),
-                                          color: Colors.white,
-                                          border: Border.all(
-                                            color: Colors.grey.withOpacity(0.3),
-                                            width: 1,
-                                          ),
-                                        ),
-                                        child: TextField(
-                                          controller: _makeController,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 16,
-                                          ),
-                                          decoration: InputDecoration(
-                                            hintText: "e.g., Honda Civic",
-                                            hintStyle: GoogleFonts.poppins(
-                                              color: Colors.grey,
-                                              fontSize: 14,
-                                            ),
-                                            prefixIcon: Icon(
-                                              Icons.car_rental,
-                                              color: primaryColor,
-                                            ),
-                                            border: InputBorder.none,
-                                            contentPadding: EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 14,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      SizedBox(height: 20),
-
-                                      // Vehicle Type
-                                      Text(
-                                        'Vehicle Type',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w500,
-                                          color: Colors.black54,
-                                        ),
-                                      ),
-                                      SizedBox(height: 8),
-                                      Theme(
-                                        data: Theme.of(context).copyWith(
-                                          colorScheme: ColorScheme.light(
-                                            primary: primaryColor,
-                                            onSurface: Colors.black87,
-                                          ),
-                                        ),
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(12),
-                                            color: Colors.white,
-                                            border: Border.all(
-                                              color: Colors.grey.withOpacity(0.3),
-                                              width: 1,
-                                            ),
-                                          ),
-                                          child: VehicleTypeDropdown(
-                                            onChanged: (String? selectedType) {
-                                              setState(() {
-                                                _selectedVehicleType = selectedType;
-                                              });
-                                            },
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          SizedBox(height: 30),
-
-                          // Submit button
-                          Container(
-                            width: double.infinity,
-                            height: 55,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: primaryColor.withOpacity(0.3),
-                                  blurRadius: 10,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
-                              gradient: LinearGradient(
-                                colors: [
-                                  primaryColor,
-                                  Color(0xFF7E3BD0), // Darker shade of primary color
-                                ],
-                              ),
-                            ),
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                shadowColor: Colors.transparent,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                              ),
-                              onPressed: _isLoading ? null : _addVehicle,
-                              child: _isLoading
-                                  ? SizedBox(
-                                height: 25,
-                                width: 25,
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                                  : Text(
-                                "Add Vehicle",
-                                style: GoogleFonts.poppins(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          SizedBox(height: 30),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
+
+                SizedBox(height: 32),
+
+                // Vehicle details section
+                Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, color: primaryColor),
+                    SizedBox(width: 8),
+                    Text(
+                      'Vehicle Details',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: textDarkColor,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 20),
+
+                // Modern form fields
+                _buildFormLabel('Registration Number'),
+                SizedBox(height: 8),
+                _buildTextField(
+                  controller: _regNumController,
+                  hintText: "e.g., KA-01-AB-1234",
+                  prefixIcon: Icons.directions_car_filled_outlined,
+                ),
+
+                SizedBox(height: 20),
+
+                _buildFormLabel('Make & Model'),
+                SizedBox(height: 8),
+                _buildTextField(
+                  controller: _makeController,
+                  hintText: "e.g., Honda Civic",
+                  prefixIcon: Icons.car_rental_outlined,
+                ),
+
+                SizedBox(height: 20),
+
+                _buildFormLabel('Current Mileage (km)'),
+                SizedBox(height: 8),
+                _buildTextField(
+                  controller: _mileageController,
+                  hintText: "e.g., 15000",
+                  prefixIcon: Icons.speed_outlined,
+                  keyboardType: TextInputType.number,
+                ),
+
+                SizedBox(height: 20),
+
+                _buildFormLabel('Vehicle Type'),
+                SizedBox(height: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    color: surfaceColor,
+                    border: Border.all(
+                      color: Colors.grey.withOpacity(0.2),
+                      width: 1,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 8,
+                        spreadRadius: 0,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: ColorScheme.light(
+                        primary: primaryColor,
+                        onSurface: textDarkColor,
+                      ),
+                    ),
+                    child: VehicleTypeDropdown(
+                      onChanged: (String? selectedType) {
+                        setState(() {
+                          _selectedVehicleType = selectedType;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: 40),
+                // Submit button
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: primaryColor,
+                      foregroundColor: Colors.white,
+                      elevation: 2,
+                      shadowColor: primaryColor.withOpacity(0.3),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    onPressed: _isLoading ? null : _addVehicle,
+                    child: _isLoading
+                        ? SizedBox(
+                      height: 24,
+                      width: 24,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2.5,
+                      ),
+                    )
+                        : Text(
+                      "Add Vehicle",
+                      style: GoogleFonts.poppins(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+
+                SizedBox(height: 30),
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFormLabel(String label) {
+    return Text(
+      label,
+      style: GoogleFonts.poppins(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: textDarkColor,
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    required IconData prefixIcon,
+    TextInputType keyboardType = TextInputType.text,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        color: surfaceColor,
+        border: Border.all(
+          color: Colors.grey.withOpacity(0.2),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            spreadRadius: 0,
+            offset: Offset(0, 2),
+          ),
         ],
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        style: GoogleFonts.poppins(
+          fontSize: 15,
+          color: textDarkColor,
+        ),
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: GoogleFonts.poppins(
+            color: textLightColor,
+            fontSize: 14,
+          ),
+          prefixIcon: Icon(
+            prefixIcon,
+            color: primaryColor,
+            size: 20,
+          ),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+        ),
       ),
     );
   }

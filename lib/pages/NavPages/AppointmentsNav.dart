@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:sdp_app/data/Appointments/AppointmentData.dart';
+import 'package:sdp_app/utils/DioInstance.dart';
+import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class Appointmentsnav extends StatefulWidget {
   const Appointmentsnav({super.key});
@@ -83,6 +86,10 @@ class _AppointmentsnavState extends State<Appointmentsnav> {
 
   @override
   Widget build(BuildContext context) {
+    // Get current date for display
+    final now = DateTime.now();
+    final currentDateStr = DateFormat('EEEE, MMMM d, yyyy').format(now);
+
     return Scaffold(
       backgroundColor: const Color(0xFFEAEAEA),
       body: _isLoading
@@ -128,7 +135,7 @@ class _AppointmentsnavState extends State<Appointmentsnav> {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16.0),
                   child: Text(
-                    "Today is Saturday, April 19, 2025",
+                    "Today is $currentDateStr",
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[700],
@@ -148,7 +155,10 @@ class _AppointmentsnavState extends State<Appointmentsnav> {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  NextAppointmentCard(appointment: _closestAppointment!),
+                  NextAppointmentCard(
+                    appointment: _closestAppointment!,
+                    onRefresh: _loadAppointments,
+                  ),
                   const SizedBox(height: 20),
                 ],
 
@@ -250,10 +260,12 @@ class _AppointmentsnavState extends State<Appointmentsnav> {
 
 class NextAppointmentCard extends StatelessWidget {
   final Appointment appointment;
+  final VoidCallback onRefresh;
 
   const NextAppointmentCard({
     super.key,
     required this.appointment,
+    required this.onRefresh,
   });
 
   @override
@@ -261,72 +273,63 @@ class NextAppointmentCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16.0),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF944EF8), Color(0xFF7A3CD3)],
-        ),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.purple.withOpacity(0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Column(
         children: [
-          // Appointment header
+          // Appointment header with date and time
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
+            decoration: BoxDecoration(
+              color: const Color(0xFF944EF8).withOpacity(0.1),
+              borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
               ),
             ),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Icon(
-                  Icons.calendar_today,
-                  color: Color(0xFF944EF8),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        DateFormat('EEEE, MMMM d, yyyy').format(appointment.dateTime),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      DateFormat('EEEE, MMMM d, yyyy').format(appointment.dateTime),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        DateFormat('h:mm a').format(appointment.dateTime),
-                        style: TextStyle(
-                          color: Colors.grey[700],
-                          fontSize: 14,
-                        ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat('h:mm a').format(appointment.dateTime),
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        fontSize: 14,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: appointment.isConfirmed ? Colors.green[100] : Colors.orange[100],
-                    borderRadius: BorderRadius.circular(12),
+                    color: Colors.green[100],
+                    borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    appointment.isConfirmed ? 'Confirmed' : 'Pending',
+                    'Confirmed',
                     style: TextStyle(
-                      color: appointment.isConfirmed ? Colors.green[800] : Colors.orange[800],
+                      color: Colors.green[800],
                       fontWeight: FontWeight.bold,
+                      fontSize: 12,
                     ),
                   ),
                 ),
@@ -339,10 +342,21 @@ class NextAppointmentCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                // Vehicle
+                // Vehicle details
                 Row(
                   children: [
-                    const Icon(Icons.directions_car_outlined, color: Colors.white),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.directions_car,
+                        color: Color(0xFF944EF8),
+                        size: 24,
+                      ),
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -350,26 +364,43 @@ class NextAppointmentCard extends StatelessWidget {
                         children: [
                           const Text(
                             'Vehicle',
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                            style: TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
                           ),
-                          const SizedBox(height: 2),
                           Text(
                             '${appointment.vehicleModel} (${appointment.vehicleNumber})',
-                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
                         ],
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
 
-                // Notes if available
+                const SizedBox(height: 16),
+
+                // Notes section
                 if (appointment.notes != null && appointment.notes!.isNotEmpty) ...[
-                  const SizedBox(height: 12),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.notes_outlined, color: Colors.white),
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.notes,
+                          color: Color(0xFF944EF8),
+                          size: 24,
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -377,21 +408,22 @@ class NextAppointmentCard extends StatelessWidget {
                           children: [
                             const Text(
                               'Notes',
-                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
                             ),
-                            const SizedBox(height: 2),
                             Text(
                               appointment.notes!,
-                              style: const TextStyle(color: Colors.white, fontSize: 16),
+                              style: const TextStyle(fontSize: 14),
                             ),
                           ],
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 16),
                 ],
-
-                const SizedBox(height: 20),
 
                 // Action buttons
                 Row(
@@ -417,10 +449,7 @@ class NextAppointmentCard extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () {
-                          // Implement cancel functionality
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Cancel appointment')),
-                          );
+                          _showCancelConfirmationDialog(context);
                         },
                         icon: const Icon(Icons.cancel_outlined),
                         label: const Text('Cancel'),
@@ -439,6 +468,105 @@ class NextAppointmentCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  void _showCancelConfirmationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel Appointment'),
+        content: const Text(
+          'Are you sure you want to cancel this appointment?',
+          style: TextStyle(fontSize: 16),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('No, Keep It'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _cancelAppointment(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Yes, Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _cancelAppointment(BuildContext context) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Get token from SharedPreferences
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('token');
+
+      if (token == null) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Authentication error. Please log in again.')),
+        );
+        return;
+      }
+
+      // Make API call to cancel appointment
+      final response = await DioInstance.deleteRequest(
+        '/api/customers/cancel-appointment/${appointment.id}',
+        options: Options(
+          headers: {
+            "Authorization": "Bearer $token",
+          },
+        ),
+      );
+
+      // Close loading dialog
+      Navigator.pop(context);
+
+      if (response != null && response.statusCode == 200) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Appointment cancelled successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // Refresh the appointments list
+        onRefresh();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to cancel appointment: ${response?.data['message'] ?? 'Unknown error'}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      // Close loading dialog
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }
 
