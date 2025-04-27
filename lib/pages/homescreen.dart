@@ -13,6 +13,7 @@ import 'package:sdp_app/utils/DioInstance.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sdp_app/components/NotFinishedStatus.dart';
+import 'package:sdp_app/pages/UpdateMilleagePage.dart';
 
 class Homescreen extends StatefulWidget {
   const Homescreen({super.key});
@@ -46,9 +47,6 @@ class _HomescreenState extends State<Homescreen> {
     });
   }
 
-
-
-
   @override
   void initState() {
     super.initState();
@@ -76,7 +74,7 @@ class _HomescreenState extends State<Homescreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildHeader(),
-                  ServiceStatusCardList(),
+                  NotFinishedStatus(),
                   SizedBox(
                     height: 10.0,
                   ),
@@ -319,11 +317,9 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
 
-
-
   Widget _buildUpcomingServiceCard() {
     return Container(
-      height: 180,
+      // Removed fixed height constraint to allow content to determine the size
       margin: EdgeInsets.only(bottom: 16.0),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20.0),
@@ -340,48 +336,84 @@ class _HomescreenState extends State<Homescreen> {
         borderRadius: BorderRadius.circular(20.0),
         child: Stack(
           children: [
-            Positioned(
-              right: -30,
-              bottom: -20,
-              child: Container(
-                height: 180.0,
-                width: 180.0,
-                child: Image.asset(
-                  'images/wrx.jpg',
-                  fit: BoxFit.cover,
+            // Background gradient for more visual appeal
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    cardColor.withOpacity(0.8),
+                    cardColor,
+                  ],
                 ),
               ),
             ),
+            // Car image in the corner
+            Positioned(
+              right: -30,
+              bottom: 40,
+              child: Container(
+                height: 180.0,
+                width: 180.0,
+                // child: Image.asset(
+                //   'images/wrx.jpg',
+                //   fit: BoxFit.cover,
+                // ),
+              ),
+            ),
+            // Main content
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // Changed to remove mainAxisAlignment and mainAxisSize properties
+                // which were causing layout issues
                 children: [
+                  // Mileage update importance section
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.warning_amber_rounded,
-                            size: 20,
-                            color: Colors.amber,
+                      // Animated badge for daily mileage
+                      TweenAnimationBuilder(
+                        tween: Tween<double>(begin: 0, end: 1),
+                        duration: Duration(milliseconds: 800),
+                        builder: (context, value, child) {
+                          return Transform.scale(
+                            scale: value,
+                            child: child,
+                          );
+                        },
+                        child: Container(
+                          padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: primaryColor,
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          SizedBox(width: 8),
-                          Text(
-                            "Maintenance Due",
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: Colors.black54,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.trending_up,
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                "Daily Tracker",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                      SizedBox(height: 4),
+                      SizedBox(height: 12),
                       Text(
-                        "60,000 km Service",
+                        "Track Mileage Daily",
                         style: GoogleFonts.poppins(
                           fontSize: 22,
                           fontWeight: FontWeight.w600,
@@ -390,7 +422,7 @@ class _HomescreenState extends State<Homescreen> {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        "Subaru WRX • KA-01-AB-1234",
+                        "For accurate service schedules & maintenance alerts",
                         style: GoogleFonts.poppins(
                           fontSize: 14,
                           color: Colors.black54,
@@ -399,36 +431,154 @@ class _HomescreenState extends State<Homescreen> {
                       ),
                     ],
                   ),
-                  Container(
-                    width: 150,
-                    child: ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 2,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.calendar_today, size: 16),
-                          SizedBox(width: 8),
-                          Text(
-                            "Schedule",
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
+                  // Added some vertical spacing between content sections
+                  SizedBox(height: 16),
+                  // Interactive elements row
+                  Row(
+                    children: [
+                      // Quick update button
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {
+                            // Navigate to update mileage page if a vehicle is selected
+                            if (vehicles.isNotEmpty) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => UpdateMileagePage(vehicle: vehicles[0]),
+                                ),
+                              ).then((_) => _loadVehicles());
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
+                            elevation: 3,
                           ),
-                        ],
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Animated icon for attention
+                              TweenAnimationBuilder(
+                                tween: Tween<double>(begin: 0, end: 1),
+                                duration: Duration(milliseconds: 1000),
+                                builder: (context, value, child) {
+                                  return Transform.rotate(
+                                    angle: value * 0.2 * (value < 0.5 ? value : 1 - value) * 2,
+                                    child: child,
+                                  );
+                                },
+                                child: Icon(Icons.speed, size: 16),
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                "Update Now",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                      SizedBox(width: 10),
+                      // Info button with tooltip
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 4.0,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          onPressed: () {
+                            // Show dialog explaining importance of daily mileage updates
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: Text("Why Update Daily?"),
+                                content: Text(
+                                  "Regular mileage updates help us provide accurate maintenance schedules, fuel efficiency tracking, and timely service reminders to keep your vehicle in top condition.",
+                                  style: GoogleFonts.poppins(),
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: Text("Got it"),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          icon: Icon(
+                            Icons.info_outline,
+                            color: primaryColor,
+                            size: 20,
+                          ),
+                          tooltip: "Why update daily?",
+                        ),
+                      ),
+                    ],
                   ),
                 ],
+              ),
+            ),
+            // Progress indicator showing update streaks or consistency
+            Positioned(
+              top: 20,
+              right: 20,
+              child: Container(
+                height: 40,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black12,
+                      blurRadius: 4.0,
+                      offset: Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  children: [
+                    // Circular progress indicator showing update streak
+                    Center(
+                      child: SizedBox(
+                        height: 36,
+                        width: 36,
+                        child: CircularProgressIndicator(
+                          value: 0.7, // Example: 70% consistent with daily updates
+                          strokeWidth: 4,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                          backgroundColor: Colors.grey.withOpacity(0.2),
+                        ),
+                      ),
+                    ),
+                    // Day count in the center
+                    Center(
+                      child: Text(
+                        "7",
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
@@ -538,7 +688,7 @@ class _HomescreenState extends State<Homescreen> {
 
     return CarouselSlider(
       options: CarouselOptions(
-        height: 180.0,
+        height: 200.0,
         enlargeCenterPage: true,
         autoPlay: vehicles.length > 1,
         aspectRatio: 16/9,
@@ -568,11 +718,13 @@ class _HomescreenState extends State<Homescreen> {
                 borderRadius: BorderRadius.circular(20.0),
                 child: Stack(
                   children: [
+                    // Background image
                     Positioned.fill(
-                      child: vehicle.picUrl != null && vehicle.picUrl!.isNotEmpty
-                          ? Image.network(vehicle.picUrl!, fit: BoxFit.cover)
+                      child: vehicle.picUrl != null && vehicle.picUrl.isNotEmpty
+                          ? Image.network(vehicle.picUrl, fit: BoxFit.cover)
                           : Image.asset("images/car_placeholder.jpg", fit: BoxFit.cover),
                     ),
+                    // Gradient overlay
                     Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -585,6 +737,7 @@ class _HomescreenState extends State<Homescreen> {
                         ),
                       ),
                     ),
+                    // Vehicle info
                     Positioned(
                       bottom: 0,
                       left: 0,
@@ -617,26 +770,16 @@ class _HomescreenState extends State<Homescreen> {
                                     fontSize: 14.0,
                                   ),
                                 ),
-                                SizedBox(width: 8),
-                                Icon(
-                                  Icons.speed,
-                                  size: 14,
-                                  color: Colors.white70,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  "58,450 km",
-                                  style: GoogleFonts.poppins(
-                                    color: Colors.white70,
-                                    fontSize: 14.0,
-                                  ),
-                                ),
+                                Spacer(),
+                                // Interactive mileage display that also serves as the update button
+                                _buildMileageUpdate(context, vehicle),
                               ],
                             ),
                           ],
                         ),
                       ),
                     ),
+                    // Status label
                     Positioned(
                       top: 12,
                       right: 12,
@@ -673,6 +816,99 @@ class _HomescreenState extends State<Homescreen> {
           },
         );
       }).toList(),
+    );
+  }
+
+  // New method to create a beautiful interactive mileage widget
+  Widget _buildMileageUpdate(BuildContext context, Vehicle vehicle) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UpdateMileagePage(vehicle: vehicle),
+          ),
+        ).then((_) => _loadVehicles());
+      },
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [primaryColor.withOpacity(0.8), primaryColor],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(30),
+          boxShadow: [
+            BoxShadow(
+              color: primaryColor.withOpacity(0.3),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Animated odometer icon
+            TweenAnimationBuilder(
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: Duration(milliseconds: 800),
+              builder: (context, double value, child) {
+                return Transform.rotate(
+                  angle: value * 0.2,
+                  child: child,
+                );
+              },
+              child: Icon(
+                Icons.speed,
+                size: 16,
+                color: Colors.white,
+              ),
+            ),
+            SizedBox(width: 6),
+            // Current mileage with pulse animation on load
+            TweenAnimationBuilder(
+              tween: Tween<double>(begin: 0.8, end: 1),
+              duration: Duration(milliseconds: 1200),
+              curve: Curves.elasticOut,
+              builder: (context, double value, child) {
+                return Transform.scale(
+                  scale: value,
+                  child: child,
+                );
+              },
+              child: Text(
+                vehicle.currentMilleage != null
+                    ? '${vehicle.currentMilleage} km'
+                    : 'Add',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 14.0,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            SizedBox(width: 4),
+            // Edit icon with subtle animation
+            TweenAnimationBuilder(
+              tween: Tween<double>(begin: 0, end: 1),
+              duration: Duration(milliseconds: 600),
+              builder: (context, double value, child) {
+                return Opacity(
+                  opacity: value,
+                  child: child,
+                );
+              },
+              child: Icon(
+                Icons.edit,
+                size: 12,
+                color: Colors.white70,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -740,7 +976,3 @@ class _HomescreenState extends State<Homescreen> {
     );
   }
 }
-
-
-
-

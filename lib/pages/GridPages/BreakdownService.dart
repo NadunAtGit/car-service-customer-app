@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:location_picker_flutter_map/location_picker_flutter_map.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sdp_app/utils/DioInstance.dart';
+import 'package:dio/dio.dart';
+import 'package:geolocator/geolocator.dart';
 
 class Breakdownservice extends StatefulWidget {
   const Breakdownservice({super.key});
@@ -10,10 +14,11 @@ class Breakdownservice extends StatefulWidget {
 }
 
 class _BreakdownserviceState extends State<Breakdownservice> {
-  // Variables for map
-  GoogleMapController? _mapController;
-  LatLng? _selectedLocation;
-  final LatLng _defaultLocation = const LatLng(37.7749, -122.4194); // Default location
+  // Selected location
+  LatLong? _selectedLocation;
+
+  // Flag to track if location has been obtained
+  bool _locationObtained = false;
 
   // Emergency contact number
   final String _emergencyNumber = "123-456-7890"; // Replace with actual number
@@ -23,14 +28,98 @@ class _BreakdownserviceState extends State<Breakdownservice> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
 
-  void _onMapCreated(GoogleMapController controller) {
-    _mapController = controller;
+  // Loading state
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLocationPermission();
   }
 
-  void _onMapTapped(LatLng location) {
+  Future<void> _checkLocationPermission() async {
     setState(() {
-      _selectedLocation = location;
+      _isLoading = true;
     });
+
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      // Location services are not enabled
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location services are disabled. Please enable them.')),
+        );
+      }
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        // Permissions are denied
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions are denied')),
+          );
+        }
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      // Permissions are denied forever
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location permissions are permanently denied')),
+        );
+      }
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Permissions are granted, get current location
+    await _getCurrentLocation();
+  }
+
+  Future<void> _getCurrentLocation() async {
+    try {
+      // Get current position using Geolocator with timeout
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 15),
+      );
+
+      // Update selected location
+      if (mounted) {
+        setState(() {
+          _selectedLocation = LatLong(
+              position.latitude,
+              position.longitude
+          );
+          _locationObtained = true;
+          _isLoading = false;
+        });
+        print("Location obtained: ${position.latitude}, ${position.longitude}");
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not get current location: ${e.toString()}')),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _callEmergency() async {
@@ -38,13 +127,15 @@ class _BreakdownserviceState extends State<Breakdownservice> {
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not launch phone call')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not launch phone call')),
+        );
+      }
     }
   }
 
-  void _submitRequest() {
+  Future<void> _submitRequest() async {
     if (_selectedLocation == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a location on the map')),
@@ -59,11 +150,70 @@ class _BreakdownserviceState extends State<Breakdownservice> {
       return;
     }
 
-    // Process the breakdown service request
-    // In a real app, you would send this data to a server
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Your request has been submitted. Help is on the way!')),
-    );
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Get token from SharedPreferences
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      String? token = prefs.getString('token');
+      String? customerId = prefs.getString('customerId');
+
+      if (token == null) {
+        throw Exception("Authentication token is missing");
+      }
+
+      // Prepare request data
+      final requestData = {
+        'latitude': _selectedLocation!.latitude,
+        'longitude': _selectedLocation!.longitude,
+        'description': _descriptionController.text,
+        'contactName': _nameController.text,
+        'contactPhone': _phoneController.text,
+        'customerId': customerId,
+      };
+
+      // Make API call using DioInstance
+      final response = await DioInstance.postRequest(
+        '/api/customers/breakdown/request',
+        requestData,
+        options: Options(
+          headers: {
+            "Authorization": "Bearer $token",
+          },
+        ),
+      );
+
+      if (response != null && response.statusCode == 201) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Your request has been submitted. Help is on the way!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context);
+        }
+      } else {
+        throw Exception("Failed to submit request");
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -81,7 +231,31 @@ class _BreakdownserviceState extends State<Breakdownservice> {
         backgroundColor: primaryColor,
         elevation: 0,
       ),
-      body: Container(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: primaryColor))
+          : (_selectedLocation == null
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text(
+              "Obtaining your location...",
+              style: TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _getCurrentLocation,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 12),
+              ),
+              child: const Text("Retry"),
+            ),
+          ],
+        ),
+      )
+          : Container(
         color: backgroundColor,
         child: Column(
           children: [
@@ -104,55 +278,48 @@ class _BreakdownserviceState extends State<Breakdownservice> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(10),
-                  child: Stack(
-                    children: [
-                      GoogleMap(
-                        onMapCreated: _onMapCreated,
-                        initialCameraPosition: CameraPosition(
-                          target: _defaultLocation,
-                          zoom: 14.0,
-                        ),
-                        markers: _selectedLocation != null
-                            ? {
-                          Marker(
-                            markerId: const MarkerId('selected_location'),
-                            position: _selectedLocation!,
-                            infoWindow: const InfoWindow(
-                              title: 'Your Location',
-                              snippet: 'Help will be sent here',
-                            ),
-                          ),
-                        }
-                            : {},
-                        onTap: _onMapTapped,
-                      ),
-                      Positioned(
-                        bottom: 16,
-                        left: 16,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.grey.withOpacity(0.3),
-                                spreadRadius: 1,
-                                blurRadius: 3,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: const Text(
-                            'Tap map to select your location',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: FlutterLocationPicker(
+                    initZoom: 15,
+                    minZoomLevel: 5,
+                    maxZoomLevel: 18,
+                    trackMyPosition: true,
+                    initPosition: _selectedLocation,
+                    searchBarBackgroundColor: Colors.white,
+                    mapLanguage: 'en',
+                    selectLocationButtonText: 'Confirm Location',
+                    selectLocationButtonStyle: ButtonStyle(
+                      backgroundColor:
+                      MaterialStateProperty.all(primaryColor),
+                    ),
+                    selectLocationButtonLeadingIcon: const Icon(
+                      Icons.check_circle,
+                      color: Colors.white,
+                    ),
+                    showSearchBar: true,
+                    showSelectLocationButton: false,
+                    showCurrentLocationPointer: true,
+                    showLocationController: true,
+                    showZoomController: true,
+                    markerIcon: const Icon(
+                      Icons.location_on,
+                      color: Colors.red,
+                      size: 50,
+                    ),
+                    onError: (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                    },
+                    onPicked: (pickedData) {
+                      setState(() {
+                        _selectedLocation = pickedData.latLong;
+                      });
+                    },
+                    onChanged: (pickedData) {
+                      setState(() {
+                        _selectedLocation = pickedData.latLong;
+                      });
+                    },
                   ),
                 ),
               ),
@@ -160,7 +327,8 @@ class _BreakdownserviceState extends State<Breakdownservice> {
 
             // Emergency call button
             Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.symmetric(
+                  horizontal: 16, vertical: 8),
               width: double.infinity,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.phone, color: Colors.white),
@@ -205,13 +373,15 @@ class _BreakdownserviceState extends State<Breakdownservice> {
                         controller: _nameController,
                         decoration: InputDecoration(
                           labelText: 'Your Name',
-                          prefixIcon: const Icon(Icons.person, color: Color(0xFFD9BAF4)),
+                          prefixIcon: const Icon(Icons.person,
+                              color: Color(0xFFD9BAF4)),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Color(0xFFD9BAF4), width: 2),
+                            borderSide: const BorderSide(
+                                color: Color(0xFFD9BAF4), width: 2),
                           ),
                         ),
                       ),
@@ -220,13 +390,15 @@ class _BreakdownserviceState extends State<Breakdownservice> {
                         controller: _phoneController,
                         decoration: InputDecoration(
                           labelText: 'Your Phone Number',
-                          prefixIcon: const Icon(Icons.phone_android, color: Color(0xFFD9BAF4)),
+                          prefixIcon: const Icon(Icons.phone_android,
+                              color: Color(0xFFD9BAF4)),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Color(0xFFD9BAF4), width: 2),
+                            borderSide: const BorderSide(
+                                color: Color(0xFFD9BAF4), width: 2),
                           ),
                         ),
                         keyboardType: TextInputType.phone,
@@ -236,13 +408,15 @@ class _BreakdownserviceState extends State<Breakdownservice> {
                         controller: _descriptionController,
                         decoration: InputDecoration(
                           labelText: 'Describe Your Problem (Optional)',
-                          prefixIcon: const Icon(Icons.description, color: Color(0xFFD9BAF4)),
+                          prefixIcon: const Icon(Icons.description,
+                              color: Color(0xFFD9BAF4)),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(color: Color(0xFFD9BAF4), width: 2),
+                            borderSide: const BorderSide(
+                                color: Color(0xFFD9BAF4), width: 2),
                           ),
                         ),
                         maxLines: 2,
@@ -278,13 +452,12 @@ class _BreakdownserviceState extends State<Breakdownservice> {
             ),
           ],
         ),
-      ),
+      )),
     );
   }
 
   @override
   void dispose() {
-    _mapController?.dispose();
     _descriptionController.dispose();
     _nameController.dispose();
     _phoneController.dispose();

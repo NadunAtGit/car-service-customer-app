@@ -8,6 +8,7 @@ class Vehicle {
   final String type;
   final String customerId;
   final String picUrl;
+  final int? currentMilleage; // Make it nullable with int?
 
   // Constructor
   Vehicle({
@@ -16,6 +17,7 @@ class Vehicle {
     required this.type,
     required this.customerId,
     required this.picUrl,
+    this.currentMilleage, // Make it optional
   });
 
   // Factory method to create a Vehicle object from JSON
@@ -25,10 +27,13 @@ class Vehicle {
       model: json["Model"],
       type: json["Type"],
       customerId: json["CustomerID"],
-      picUrl: json["VehiclePicUrl"] ?? "images/default.jpg", // Provide a default image
+      picUrl: json["VehiclePicUrl"] ?? "images/default.jpg",
+      currentMilleage: json["CurrentMilleage"], // This will handle null values
     );
   }
 }
+
+
 
 // Function to fetch customer vehicles from API
 Future<List<Vehicle>> fetchCustomerVehicles() async {

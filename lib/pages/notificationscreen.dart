@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:sdp_app/data/Notifications/NotificationData.dart';
 import 'NotifyPages/RescheduleAppointments.dart';
+import 'package:sdp_app/pages/NotifyPages/AppointmentConfirmNotification.dart';
+import 'package:sdp_app/pages/NotifyPages/JobCardCreated.dart';
+import 'package:sdp_app/pages/NotifyPages/AssignedWorkersNotification.dart';
+import 'package:sdp_app/pages/NotifyPages/RatingPage.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -229,7 +233,36 @@ class NotificationCard extends StatelessWidget {
           ),
         ),
       );
-    } else {
+    } else if(notification.type.toLowerCase() == 'appointment confirmed' && appointmentId.isNotEmpty){
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => Appointmentconfirmnotification(appointmentId: appointmentId)
+        ),
+      );
+    }else if(notification.type.toLowerCase() == 'job card' && appointmentId.isNotEmpty){
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => Jobcardcreated(jobCardId: appointmentId)
+        ),
+      );
+    }else if(notification.type.toLowerCase() == 'mechanic assignment' && appointmentId.isNotEmpty){
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => Assignedworkersnotification(jobCardId: appointmentId)
+        ),
+      );
+    }else if(notification.type.toLowerCase() == 'job card completed' && appointmentId.isNotEmpty){
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => Ratingpage(jobCardId: appointmentId)
+        ),
+      );
+    }
+    else {
       // Handle other notification types here
       print("Tapped notification of type: ${notification.type}");
 
